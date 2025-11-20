@@ -1,5 +1,5 @@
-import { renderHook, waitFor } from "@testing-library/react";
-import type { FetchCallback } from "fastcontents";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import type { FetchCallback, FetchResult } from "fastcontents";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useFastContent } from "../useFastContent";
 
@@ -31,12 +31,27 @@ describe("useFastContent", () => {
 		vi.clearAllMocks();
 	});
 
-	it("should initialize with default state", () => {
-		const fetchCallback = createMockFetch();
+	it("should initialize with default state", async () => {
+		const fetchCallback = vi.fn(
+			() =>
+				new Promise<FetchResult<TestContent>>((resolve) =>
+					setTimeout(
+						() =>
+							resolve({
+								items: mockContents,
+								hasMore: false,
+							}),
+						10, // small delay
+					),
+				),
+		);
 		const { result } = renderHook(() => useFastContent({ fetchCallback }));
 
+		await waitFor(() => {
+			expect(result.current.isLoading).toBe(true);
+		});
+
 		expect(result.current.items).toEqual([]);
-		expect(result.current.isLoading).toBe(false);
 		expect(result.current.isInitialized).toBe(false);
 		expect(result.current.error).toBe(null);
 		expect(result.current.hasMore).toBe(true);
@@ -77,17 +92,17 @@ describe("useFastContent", () => {
 			expect(result.current.items).toEqual(page1);
 		});
 
-		result.current.loadMore();
-
-		await waitFor(() => {
-			expect(result.current.items).toEqual([...page1, ...page2]);
+		await act(async () => {
+			await result.current.loadMore();
 		});
+
+		expect(result.current.items).toEqual([...page1, ...page2]);
 	});
 
 	it("should show loading state", async () => {
 		const fetchCallback = vi.fn(
 			() =>
-				new Promise((resolve) =>
+				new Promise<FetchResult<TestContent>>((resolve) =>
 					setTimeout(
 						() =>
 							resolve({

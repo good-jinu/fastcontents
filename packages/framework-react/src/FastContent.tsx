@@ -8,6 +8,12 @@ export interface FastContentProps<T> {
 	initialBatchSize?: number;
 	batchSize?: number;
 	scrollThreshold?: number;
+
+	/** Fallback UI when component is initializing or no items yet */
+	fallback?: React.ReactNode;
+
+	/** Fallback UI when loading more items */
+	loadingMoreFallback?: React.ReactNode;
 }
 
 export function FastContent<T>({
@@ -16,6 +22,8 @@ export function FastContent<T>({
 	initialBatchSize,
 	batchSize,
 	scrollThreshold = 0.8,
+	fallback = <div>Loading...</div>,
+	loadingMoreFallback = <div>Loading...</div>,
 }: FastContentProps<T>) {
 	const { items, isLoading, isInitialized, loadMore, hasMore } =
 		useFastContent<T>({
@@ -49,11 +57,14 @@ export function FastContent<T>({
 
 	return (
 		<div ref={containerRef} style={{ height: "100%", overflow: "auto" }}>
-			{showInitialLoading && <div>Loading...</div>}
+			{showInitialLoading && fallback}
+
 			{items.map((content, index) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey:inevitable
 				<div key={index}>{renderer(content, index)}</div>
 			))}
-			{isLoading && items.length > 0 && <div>Loading...</div>}
+
+			{isLoading && items.length > 0 && loadingMoreFallback}
 		</div>
 	);
 }

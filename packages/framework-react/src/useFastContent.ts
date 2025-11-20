@@ -23,23 +23,34 @@ export function useFastContent<T>(
 		hasMore: true,
 	});
 
+	const { fetchCallback, initialBatchSize, batchSize, scrollThreshold } =
+		config;
+	const savedFetchCallback = useRef(fetchCallback);
+
 	useEffect(() => {
-		const core = new FastContentsCore<T>(config);
+		savedFetchCallback.current = fetchCallback;
+	}, [fetchCallback]);
+
+	useEffect(() => {
+		const core = new FastContentsCore<T>({
+			fetchCallback: (params) => savedFetchCallback.current(params),
+			initialBatchSize,
+			batchSize,
+			scrollThreshold,
+		});
 		coreRef.current = core;
 
 		const unsubscribe = core.subscribe((newState) => {
 			setState(newState);
 		});
 
-		queueMicrotask(() => {
-			core.loadMore();
-		});
+		core.loadMore();
 
 		return () => {
 			unsubscribe();
 			core.destroy();
 		};
-	}, [config]);
+	}, [initialBatchSize, batchSize, scrollThreshold]);
 
 	const loadMore = async () => {
 		if (coreRef.current) {

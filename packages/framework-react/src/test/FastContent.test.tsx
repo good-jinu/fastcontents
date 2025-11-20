@@ -1,5 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import type { FetchCallback } from "fastcontents";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { FetchCallback, FetchResult } from "fastcontents";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FastContent } from "../FastContent";
 
@@ -76,7 +76,7 @@ describe("FastContent", () => {
 	it("should show loading state while fetching", async () => {
 		const fetchCallback = vi.fn(
 			() =>
-				new Promise((resolve) =>
+				new Promise<FetchResult<TestContent>>((resolve) =>
 					setTimeout(
 						() =>
 							resolve({
@@ -128,10 +128,6 @@ describe("FastContent", () => {
 
 		// Simulate scroll to trigger load more
 		const scrollContainer = container.firstChild as HTMLElement;
-		Object.defineProperty(scrollContainer, "scrollTop", {
-			value: 800,
-			writable: true,
-		});
 		Object.defineProperty(scrollContainer, "scrollHeight", {
 			value: 1000,
 			writable: true,
@@ -140,8 +136,7 @@ describe("FastContent", () => {
 			value: 200,
 			writable: true,
 		});
-
-		scrollContainer.dispatchEvent(new Event("scroll"));
+		fireEvent.scroll(scrollContainer, { target: { scrollTop: 800 } });
 
 		await waitFor(() => {
 			expect(fetchCallback).toHaveBeenCalledWith({
@@ -171,10 +166,6 @@ describe("FastContent", () => {
 
 		// Simulate scroll
 		const scrollContainer = container.firstChild as HTMLElement;
-		Object.defineProperty(scrollContainer, "scrollTop", {
-			value: 800,
-			writable: true,
-		});
 		Object.defineProperty(scrollContainer, "scrollHeight", {
 			value: 1000,
 			writable: true,
@@ -183,8 +174,7 @@ describe("FastContent", () => {
 			value: 200,
 			writable: true,
 		});
-
-		scrollContainer.dispatchEvent(new Event("scroll"));
+		fireEvent.scroll(scrollContainer, { target: { scrollTop: 800 } });
 
 		// Wait a bit to ensure no additional fetch
 		await new Promise((resolve) => setTimeout(resolve, 100));
@@ -230,10 +220,78 @@ describe("FastContent", () => {
 
 		// Simulate scroll at 50% threshold
 		const scrollContainer = container.firstChild as HTMLElement;
-		Object.defineProperty(scrollContainer, "scrollTop", {
-			value: 300,
+		Object.defineProperty(scrollContainer, "scrollHeight", {
+			value: 1000,
 			writable: true,
 		});
+		Object.defineProperty(scrollContainer, "clientHeight", {
+			value: 200,
+			writable: true,
+		});
+		fireEvent.scroll(scrollContainer, { target: { scrollTop: 400 } });
+
+		await waitFor(() => {
+			expect(fetchCallback).toHaveBeenCalledWith({
+				offset: 1,
+				limit: 1,
+			});
+		});
+	});
+
+	it("should render custom fallback while initializing", async () => {
+		const fetchCallback = vi.fn(
+			() =>
+				new Promise<FetchResult<TestContent>>((resolve) =>
+					setTimeout(
+						() =>
+							resolve({
+								items: mockContents,
+								hasMore: false,
+							}),
+						100,
+					),
+				),
+		);
+
+		render(
+			<FastContent
+				fetchCallback={fetchCallback}
+				renderer={mockRenderer}
+				fallback={<div data-testid="custom-fallback">Please wait...</div>}
+			/>,
+		);
+
+		// Custom fallback should appear immediately
+		expect(screen.getByTestId("custom-fallback")).toBeInTheDocument();
+
+		await waitFor(() => {
+			expect(screen.getByText("Content 1")).toBeInTheDocument();
+		});
+	});
+
+	it("should render custom loadingMoreFallback when loading more items", async () => {
+		const page1 = [{ id: 1, title: "Content 1" }];
+		const page2 = [{ id: 2, title: "Content 2" }];
+
+		const fetchCallback = createMockFetch([page1, page2]);
+
+		const { container } = render(
+			<FastContent
+				fetchCallback={fetchCallback}
+				renderer={mockRenderer}
+				batchSize={1}
+				loadingMoreFallback={
+					<div data-testid="loading-more">Loading more...</div>
+				}
+			/>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText("Content 1")).toBeInTheDocument();
+		});
+
+		// Scroll to bottom to trigger load more
+		const scrollContainer = container.firstChild as HTMLElement;
 		Object.defineProperty(scrollContainer, "scrollHeight", {
 			value: 1000,
 			writable: true,
@@ -243,13 +301,15 @@ describe("FastContent", () => {
 			writable: true,
 		});
 
-		scrollContainer.dispatchEvent(new Event("scroll"));
+		fireEvent.scroll(scrollContainer, { target: { scrollTop: 800 } });
+
+		// Custom "loading more" fallback should appear
+		await waitFor(() => {
+			expect(screen.getByTestId("loading-more")).toBeInTheDocument();
+		});
 
 		await waitFor(() => {
-			expect(fetchCallback).toHaveBeenCalledWith({
-				offset: 1,
-				limit: 1,
-			});
+			expect(screen.getByText("Content 2")).toBeInTheDocument();
 		});
 	});
 });
