@@ -5,6 +5,9 @@
 	"main": "dist/index.cjs",
 	"module": "dist/index.js",
 	"types": "dist/index.d.ts",
+	"publishConfig": {
+		"access": "public"
+	},
 	"files": [
 		"dist"
 	],
@@ -16,7 +19,7 @@
 	},
 	"scripts": {
 		"clean": "rm -rf dist",
-		"build": "pnpm clean && tsdown",
+		"build": "pnpm clean && tsdown --format esm --format cjs",
 		"test": "vitest --run",
 		"test:watch": "vitest",
 		"prepublishOnly": "pnpm build && pnpm test"
