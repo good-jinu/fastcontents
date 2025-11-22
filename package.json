@@ -11,7 +11,8 @@
 		"check:fix:unsafe": "biome check --write --unsafe",
 		"test": "vitest --run",
 		"test:watch": "vitest",
-		"test:ui": "vitest --ui"
+		"test:ui": "vitest --ui",
+		"build": "pnpm -r build"
 	},
 	"keywords": [],
 	"author": "",
