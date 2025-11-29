@@ -1,70 +1,77 @@
+// FastContent.tsx
 import type { FetchCallback } from "fastcontents";
-import { useEffect, useRef } from "react";
 import { useFastContent } from "./useFastContent";
 
 export interface FastContentProps<T> {
 	fetchCallback: FetchCallback<T>;
-	renderer: (content: T, index: number) => React.ReactNode;
+	/**
+	 * Renderer now receives a single item.
+	 * 'index' is the global index of that item.
+	 */
+	renderer: React.ComponentType<{ content: T; index: number }>;
+
+	// UI for navigation (Optional - you can implement your own buttons)
+	renderControls?: (props: {
+		hasPrev: boolean;
+		hasNext: boolean;
+		onPrev: () => void;
+		onNext: () => void;
+		isLoading: boolean;
+	}) => React.ReactNode;
+
 	initialBatchSize?: number;
 	batchSize?: number;
-	scrollThreshold?: number;
-
-	/** Fallback UI when component is initializing or no items yet */
 	fallback?: React.ReactNode;
-
-	/** Fallback UI when loading more items */
-	loadingMoreFallback?: React.ReactNode;
 }
 
 export function FastContent<T>({
 	fetchCallback,
-	renderer,
-	initialBatchSize,
-	batchSize,
-	scrollThreshold = 0.8,
-	fallback = <div>Loading...</div>,
-	loadingMoreFallback = <div>Loading...</div>,
+	renderer: Renderer,
+	renderControls,
+	initialBatchSize = 3, // Keep small for navigation
+	batchSize = 3,
+	fallback,
 }: FastContentProps<T>) {
-	const { items, isLoading, isInitialized, loadMore, hasMore } =
-		useFastContent<T>({
-			fetchCallback,
-			initialBatchSize,
-			batchSize,
-			scrollThreshold,
-		});
+	const {
+		currentItem,
+		currentIndex,
+		isLoading,
+		isInitialized,
+		items,
+		hasMore,
+		goNext,
+		goPrev,
+	} = useFastContent<T>({
+		fetchCallback,
+		initialBatchSize,
+		batchSize,
+	});
 
-	const containerRef = useRef<HTMLDivElement>(null);
+	const hasPrev = currentIndex > 0;
+	// We have a next item if it exists in memory OR if the server has more
+	const hasNext = currentIndex < items.length - 1 || hasMore;
 
-	useEffect(() => {
-		const container = containerRef.current;
-		if (!container) return;
+	if (!isInitialized && isLoading) {
+		return <>{fallback}</>;
+	}
 
-		const handleScroll = () => {
-			const { scrollTop, scrollHeight, clientHeight } = container;
-			const scrollPercentage = (scrollTop + clientHeight) / scrollHeight;
-
-			if (scrollPercentage >= scrollThreshold && !isLoading && hasMore) {
-				loadMore();
-			}
-		};
-
-		container.addEventListener("scroll", handleScroll);
-		return () => container.removeEventListener("scroll", handleScroll);
-	}, [isLoading, hasMore, scrollThreshold, loadMore]);
-
-	const showInitialLoading =
-		!isInitialized || (isLoading && items.length === 0);
+	if (!currentItem) {
+		return <div>No content available</div>;
+	}
 
 	return (
-		<div ref={containerRef} style={{ height: "100%", overflow: "auto" }}>
-			{showInitialLoading && fallback}
+		<div style={{ position: "relative", width: "100%", height: "100%" }}>
+			{/* 1. Render ONLY the current item */}
+			<Renderer content={currentItem} index={currentIndex} />
 
-			{items.map((content, index) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey:inevitable
-				<div key={index}>{renderer(content, index)}</div>
-			))}
-
-			{isLoading && items.length > 0 && loadingMoreFallback}
+			{/* 2. Optional: Render Navigation Controls */}
+			{renderControls?.({
+				hasPrev,
+				hasNext,
+				onPrev: goPrev,
+				onNext: goNext,
+				isLoading,
+			})}
 		</div>
 	);
 }

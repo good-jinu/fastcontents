@@ -22,7 +22,9 @@
 		"build": "pnpm clean && tsdown --format esm --format cjs",
 		"test": "vitest --run",
 		"test:watch": "vitest",
-		"prepublishOnly": "pnpm build && pnpm test"
+		"prepublishOnly": "pnpm build && pnpm test",
+		"storybook": "storybook dev -p 6006",
+		"build-storybook": "storybook build"
 	},
 	"dependencies": {
 		"fastcontents": "workspace:*",
@@ -39,6 +41,8 @@
 		"jsdom": "^25.0.1",
 		"tsdown": "^0.16.6",
 		"typescript": "^5.9.3",
-		"vitest": "^2.1.8"
+		"vitest": "^2.1.8",
+		"storybook": "^10.1.2",
+		"@storybook/react-vite": "^10.1.2"
 	}
 }

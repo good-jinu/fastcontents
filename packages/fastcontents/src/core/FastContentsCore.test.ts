@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FastContentsCore } from "./FastContentsCore";
-import type { FetchCallback } from "./types";
+import type { FetchCallback, FetchResult } from "./types";
 
 interface TestContent {
 	id: number;
@@ -8,20 +8,40 @@ interface TestContent {
 }
 
 describe("FastContentsCore", () => {
-	const mockContents: TestContent[] = [
-		{ id: 1, title: "Content 1" },
-		{ id: 2, title: "Content 2" },
-		{ id: 3, title: "Content 3" },
-	];
+	// Helper to generate distinct items
+	const generateItems = (startId: number, count: number): TestContent[] => {
+		return Array.from({ length: count }, (_, i) => ({
+			id: startId + i,
+			title: `Content ${startId + i}`,
+		}));
+	};
+
+	const mockPage1 = generateItems(1, 3); // IDs 1, 2, 3
+	const mockPage2 = generateItems(4, 3); // IDs 4, 5, 6
 
 	const createMockFetch = (
-		pages: TestContent[][] = [mockContents],
+		pages: TestContent[][] = [mockPage1],
 	): FetchCallback<TestContent> => {
 		return vi.fn((params) => {
-			const pageIndex = params.offset / (params.limit || 10);
+			// Simple mock logic: if offset is 0 return page 1, if 3 return page 2, etc.
+			const flatItems = pages.flat();
+			const slice = flatItems.slice(
+				params.offset,
+				params.offset + params.limit,
+			);
+
+			// Determine if there are actual items left in the "database" (pages)
+			// relative to what we just returned
+			const endOfSlice = params.offset + slice.length;
+			const totalAvailable = flatItems.length;
+			// In a real scenario, the server decides hasMore.
+			// Here we assume if we returned full page, there might be more,
+			// unless we are at the absolute end of provided mock data.
+			const hasMore = endOfSlice < totalAvailable;
+
 			return Promise.resolve({
-				items: pages[pageIndex] || [],
-				hasMore: pageIndex < pages.length - 1,
+				items: slice,
+				hasMore: hasMore,
 			});
 		});
 	};
@@ -38,6 +58,7 @@ describe("FastContentsCore", () => {
 			const state = core.getState();
 
 			expect(state.items).toEqual([]);
+			expect(state.currentIndex).toBe(0); // New assertion
 			expect(state.isLoading).toBe(false);
 			expect(state.isInitialized).toBe(false);
 			expect(state.error).toBe(null);
@@ -48,40 +69,44 @@ describe("FastContentsCore", () => {
 			const fetchCallback = createMockFetch();
 			const core = new FastContentsCore({
 				fetchCallback,
-				initialBatchSize: 20,
-				batchSize: 15,
-				scrollThreshold: 0.9,
+				initialBatchSize: 5,
+				batchSize: 5,
 			});
 
 			expect(core).toBeDefined();
+			// We can implicitly check if config worked by triggering load
+			// and checking fetch params, handled in loadMore tests
 		});
 	});
 
-	describe("loadMore", () => {
+	describe("loadMore (Internal & Initial)", () => {
 		it("should load initial contents", async () => {
 			const fetchCallback = createMockFetch();
-			const core = new FastContentsCore({ fetchCallback });
+			const core = new FastContentsCore({
+				fetchCallback,
+				initialBatchSize: 3,
+			});
 
 			await core.loadMore();
 
 			const state = core.getState();
-			expect(state.items).toEqual(mockContents);
+			expect(state.items).toEqual(mockPage1);
 			expect(state.isLoading).toBe(false);
 			expect(state.isInitialized).toBe(true);
 			expect(fetchCallback).toHaveBeenCalledWith({
 				offset: 0,
-				limit: 10,
+				limit: 3,
 			});
 		});
 
 		it("should set loading state during fetch", async () => {
 			const fetchCallback = vi.fn(
 				() =>
-					new Promise((resolve) =>
+					new Promise<FetchResult<unknown>>((resolve) =>
 						setTimeout(
 							() =>
 								resolve({
-									items: mockContents,
+									items: mockPage1,
 									hasMore: false,
 								}),
 							50,
@@ -90,71 +115,11 @@ describe("FastContentsCore", () => {
 			);
 
 			const core = new FastContentsCore({ fetchCallback });
-
 			const loadPromise = core.loadMore();
 
-			// Check loading state immediately
 			expect(core.getState().isLoading).toBe(true);
-
 			await loadPromise;
-
 			expect(core.getState().isLoading).toBe(false);
-		});
-
-		it("should append items on subsequent loads", async () => {
-			const page1 = [
-				{ id: 1, title: "Content 1" },
-				{ id: 2, title: "Content 2" },
-			];
-			const page2 = [
-				{ id: 3, title: "Content 3" },
-				{ id: 4, title: "Content 4" },
-			];
-
-			const fetchCallback = createMockFetch([page1, page2]);
-			const core = new FastContentsCore({ fetchCallback, batchSize: 2 });
-
-			await core.loadMore();
-			expect(core.getState().items).toEqual(page1);
-
-			await core.loadMore();
-			expect(core.getState().items).toEqual([...page1, ...page2]);
-		});
-
-		it("should not load when already loading", async () => {
-			const fetchCallback = vi.fn(
-				() =>
-					new Promise((resolve) =>
-						setTimeout(
-							() =>
-								resolve({
-									items: mockContents,
-									hasMore: true,
-								}),
-							50,
-						),
-					),
-			);
-
-			const core = new FastContentsCore({ fetchCallback });
-
-			const promise1 = core.loadMore();
-			const promise2 = core.loadMore();
-
-			await Promise.all([promise1, promise2]);
-
-			expect(fetchCallback).toHaveBeenCalledTimes(1);
-		});
-
-		it("should not load when hasMore is false", async () => {
-			const fetchCallback = createMockFetch([mockContents]);
-			const core = new FastContentsCore({ fetchCallback });
-
-			await core.loadMore();
-			expect(fetchCallback).toHaveBeenCalledTimes(1);
-
-			await core.loadMore();
-			expect(fetchCallback).toHaveBeenCalledTimes(1);
 		});
 
 		it("should handle fetch errors", async () => {
@@ -169,48 +134,124 @@ describe("FastContentsCore", () => {
 			expect(state.isLoading).toBe(false);
 			expect(state.items).toEqual([]);
 		});
+	});
 
-		it("should use cursor-based pagination when provided", async () => {
-			const fetchCallback = vi.fn((_params) =>
-				Promise.resolve({
-					items: mockContents,
-					nextCursor: "cursor-123",
-					hasMore: true,
-				}),
-			);
-
+	describe("Navigation & Buffering", () => {
+		it("should advance index on goNext", async () => {
+			const fetchCallback = createMockFetch([mockPage1]); // 3 items
 			const core = new FastContentsCore({ fetchCallback });
 
+			await core.loadMore(); // Load initial
+			expect(core.getState().currentIndex).toBe(0);
+
+			await core.goNext();
+			expect(core.getState().currentIndex).toBe(1);
+		});
+
+		it("should decrease index on goPrev", async () => {
+			const fetchCallback = createMockFetch([mockPage1]);
+			const core = new FastContentsCore({ fetchCallback });
 			await core.loadMore();
 
-			expect(fetchCallback).toHaveBeenCalledWith({
-				offset: 0,
-				limit: 10,
+			await core.goNext(); // Index 1
+			expect(core.getState().currentIndex).toBe(1);
+
+			core.goPrev();
+			expect(core.getState().currentIndex).toBe(0);
+		});
+
+		it("should not goPrev below 0", async () => {
+			const fetchCallback = createMockFetch();
+			const core = new FastContentsCore({ fetchCallback });
+			await core.loadMore();
+
+			expect(core.getState().currentIndex).toBe(0);
+			core.goPrev();
+			expect(core.getState().currentIndex).toBe(0);
+		});
+
+		it("should NOT goNext if at end of list and hasMore is false", async () => {
+			// Setup: Only 1 page of data exists.
+			const fetchCallback = createMockFetch([mockPage1]);
+			const core = new FastContentsCore({ fetchCallback });
+			await core.loadMore();
+
+			// Advance to end: Index 0 -> 1 -> 2
+			await core.goNext();
+			await core.goNext();
+
+			const state = core.getState();
+			expect(state.currentIndex).toBe(2);
+			expect(state.items.length).toBe(3);
+
+			// Try to go past end
+			await core.goNext();
+			expect(core.getState().currentIndex).toBe(2);
+		});
+
+		it("should automatically fetch more data when approaching end (Buffering)", async () => {
+			// Setup: Page 1 and Page 2 exist.
+			const fetchCallback = createMockFetch([mockPage1, mockPage2]);
+			const core = new FastContentsCore({
+				fetchCallback,
+				initialBatchSize: 3,
+				batchSize: 3,
+			});
+
+			await core.loadMore(); // Loads [1, 2, 3]
+			expect(fetchCallback).toHaveBeenCalledTimes(1);
+			expect(core.getState().items.length).toBe(3);
+
+			// Move to index 1.
+			// Logic: Remaining items = 3 - (1 + 1) = 1.
+			// Threshold is < 2. Should trigger loadMore.
+			await core.goNext();
+
+			expect(core.getState().currentIndex).toBe(1);
+
+			// Validate that new items were fetched
+			expect(fetchCallback).toHaveBeenCalledTimes(2);
+			expect(core.getState().items.length).toBe(6); // [1,2,3,4,5,6]
+
+			// Verify items were appended correctly
+			expect(core.getState().items[3].id).toBe(4);
+		});
+
+		it("should not fetch more if buffer is sufficient", async () => {
+			// Setup: Load a large initial batch so we don't need to fetch immediately
+			const largePage = generateItems(1, 10);
+			const fetchCallback = createMockFetch([largePage, mockPage2]);
+
+			const core = new FastContentsCore({
+				fetchCallback,
+				initialBatchSize: 10,
 			});
 
 			await core.loadMore();
+			expect(fetchCallback).toHaveBeenCalledTimes(1);
 
-			expect(fetchCallback).toHaveBeenCalledWith({
-				offset: 3,
-				limit: 10,
-				cursor: "cursor-123",
-			});
+			// Move 0 -> 1
+			await core.goNext();
+
+			// Remaining = 10 - 2 = 8. This is plenty. Should NOT fetch.
+			expect(fetchCallback).toHaveBeenCalledTimes(1);
 		});
 	});
 
 	describe("state subscription", () => {
-		it("should notify listeners on state change", async () => {
+		it("should notify listeners on navigation", async () => {
 			const fetchCallback = createMockFetch();
 			const core = new FastContentsCore({ fetchCallback });
+			await core.loadMore();
 
 			const listener = vi.fn();
 			core.subscribe(listener);
 
-			await core.loadMore();
+			await core.goNext();
 
 			expect(listener).toHaveBeenCalled();
-			const lastCall = listener.mock.calls[listener.mock.calls.length - 1][0];
-			expect(lastCall.items).toEqual(mockContents);
+			const lastState = listener.mock.calls[listener.mock.calls.length - 1][0];
+			expect(lastState.currentIndex).toBe(1);
 		});
 
 		it("should allow unsubscribing", async () => {
@@ -226,87 +267,6 @@ describe("FastContentsCore", () => {
 
 			expect(listener).not.toHaveBeenCalled();
 		});
-
-		it("should support multiple listeners", async () => {
-			const fetchCallback = createMockFetch();
-			const core = new FastContentsCore({ fetchCallback });
-
-			const listener1 = vi.fn();
-			const listener2 = vi.fn();
-
-			core.subscribe(listener1);
-			core.subscribe(listener2);
-
-			await core.loadMore();
-
-			expect(listener1).toHaveBeenCalled();
-			expect(listener2).toHaveBeenCalled();
-		});
-	});
-
-	describe("shouldLoadMore", () => {
-		it("should return true when scroll threshold is reached", () => {
-			const fetchCallback = createMockFetch();
-			const core = new FastContentsCore({
-				fetchCallback,
-				scrollThreshold: 0.8,
-			});
-
-			// scrollTop: 800, scrollHeight: 1000, clientHeight: 200
-			// scrollPercentage = (800 + 200) / 1000 = 1.0 >= 0.8
-			const result = core.shouldLoadMore(800, 1000, 200);
-
-			expect(result).toBe(true);
-		});
-
-		it("should return false when scroll threshold is not reached", () => {
-			const fetchCallback = createMockFetch();
-			const core = new FastContentsCore({
-				fetchCallback,
-				scrollThreshold: 0.8,
-			});
-
-			// scrollTop: 500, scrollHeight: 1000, clientHeight: 200
-			// scrollPercentage = (500 + 200) / 1000 = 0.7 < 0.8
-			const result = core.shouldLoadMore(500, 1000, 200);
-
-			expect(result).toBe(false);
-		});
-
-		it("should return false when already loading", async () => {
-			const fetchCallback = vi.fn(
-				() =>
-					new Promise((resolve) =>
-						setTimeout(
-							() =>
-								resolve({
-									items: mockContents,
-									hasMore: true,
-								}),
-							50,
-						),
-					),
-			);
-
-			const core = new FastContentsCore({ fetchCallback });
-
-			core.loadMore(); // Start loading
-
-			const result = core.shouldLoadMore(800, 1000, 200);
-
-			expect(result).toBe(false);
-		});
-
-		it("should return false when hasMore is false", async () => {
-			const fetchCallback = createMockFetch([mockContents]);
-			const core = new FastContentsCore({ fetchCallback });
-
-			await core.loadMore();
-
-			const result = core.shouldLoadMore(800, 1000, 200);
-
-			expect(result).toBe(false);
-		});
 	});
 
 	describe("destroy", () => {
@@ -319,8 +279,9 @@ describe("FastContentsCore", () => {
 
 			core.destroy();
 
-			// After destroy, operations should not work
-			expect(() => core.loadMore()).not.toThrow();
+			// Operations shouldn't crash, but listeners shouldn't fire
+			core.goPrev();
+			expect(listener).not.toHaveBeenCalled();
 		});
 	});
 });

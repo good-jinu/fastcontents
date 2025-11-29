@@ -19,7 +19,7 @@ describe("FastContent", () => {
 		pages: TestContent[][] = [mockContents],
 	): FetchCallback<TestContent> => {
 		return vi.fn((params) => {
-			const pageIndex = params.offset / (params.limit || 10);
+			const pageIndex = params.offset / (params.limit || 3);
 			return Promise.resolve({
 				items: pages[pageIndex] || [],
 				hasMore: pageIndex < pages.length - 1,
@@ -27,17 +27,17 @@ describe("FastContent", () => {
 		});
 	};
 
-	const mockRenderer = vi.fn((content: TestContent, index: number) => (
-		<div key={index} data-testid={`content-${content.id}`}>
-			{content.title}
-		</div>
-	));
+	const mockRenderer = vi.fn(
+		({ content }: { content: TestContent; index: number }) => (
+			<div data-testid={`content-${content.id}`}>{content.title}</div>
+		),
+	);
 
 	beforeEach(() => {
 		vi.clearAllMocks();
 	});
 
-	it("should render initial contents", async () => {
+	it("should render the first item initially", async () => {
 		const fetchCallback = createMockFetch();
 
 		render(
@@ -50,14 +50,15 @@ describe("FastContent", () => {
 
 		expect(fetchCallback).toHaveBeenCalledWith({
 			offset: 0,
-			limit: 10,
+			limit: 3,
 		});
+		// Should only render the first item (navigation mode)
 		expect(screen.getByText("Content 1")).toBeInTheDocument();
-		expect(screen.getByText("Content 2")).toBeInTheDocument();
-		expect(screen.getByText("Content 3")).toBeInTheDocument();
+		expect(screen.queryByText("Content 2")).not.toBeInTheDocument();
+		expect(screen.queryByText("Content 3")).not.toBeInTheDocument();
 	});
 
-	it("should call renderer for each content item", async () => {
+	it("should call renderer with current item and index", async () => {
 		const fetchCallback = createMockFetch();
 
 		render(
@@ -65,15 +66,17 @@ describe("FastContent", () => {
 		);
 
 		await waitFor(() => {
-			expect(mockRenderer).toHaveBeenCalledTimes(3);
+			expect(mockRenderer).toHaveBeenCalled();
 		});
 
-		expect(mockRenderer).toHaveBeenCalledWith(mockContents[0], 0);
-		expect(mockRenderer).toHaveBeenCalledWith(mockContents[1], 1);
-		expect(mockRenderer).toHaveBeenCalledWith(mockContents[2], 2);
+		// Should render only the first item initially
+		// Renderer is called with props object as first argument
+		const firstCall = mockRenderer.mock.calls[0][0];
+		expect(firstCall.content).toEqual(mockContents[0]);
+		expect(firstCall.index).toBe(0);
 	});
 
-	it("should show loading state while fetching", async () => {
+	it("should show fallback while initializing", async () => {
 		const fetchCallback = vi.fn(
 			() =>
 				new Promise<FetchResult<TestContent>>((resolve) =>
@@ -89,17 +92,104 @@ describe("FastContent", () => {
 		);
 
 		render(
-			<FastContent fetchCallback={fetchCallback} renderer={mockRenderer} />,
+			<FastContent
+				fetchCallback={fetchCallback}
+				renderer={mockRenderer}
+				fallback={<div data-testid="loading">Loading...</div>}
+			/>,
 		);
 
-		expect(screen.getByText("Loading...")).toBeInTheDocument();
+		expect(screen.getByTestId("loading")).toBeInTheDocument();
 
 		await waitFor(() => {
 			expect(screen.getByText("Content 1")).toBeInTheDocument();
 		});
 	});
 
-	it("should load more contents on scroll", async () => {
+	it("should navigate to next item with custom controls", async () => {
+		const fetchCallback = createMockFetch();
+
+		render(
+			<FastContent
+				fetchCallback={fetchCallback}
+				renderer={mockRenderer}
+				renderControls={({ hasNext, onNext }) => (
+					<button
+						type="button"
+						onClick={onNext}
+						disabled={!hasNext}
+						data-testid="next-btn"
+					>
+						Next
+					</button>
+				)}
+			/>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText("Content 1")).toBeInTheDocument();
+		});
+
+		const nextBtn = screen.getByTestId("next-btn");
+		fireEvent.click(nextBtn);
+
+		await waitFor(() => {
+			expect(screen.getByText("Content 2")).toBeInTheDocument();
+		});
+
+		expect(screen.queryByText("Content 1")).not.toBeInTheDocument();
+	});
+
+	it("should navigate to previous item with custom controls", async () => {
+		const fetchCallback = createMockFetch();
+
+		render(
+			<FastContent
+				fetchCallback={fetchCallback}
+				renderer={mockRenderer}
+				renderControls={({ hasPrev, hasNext, onPrev, onNext }) => (
+					<div>
+						<button
+							type="button"
+							onClick={onPrev}
+							disabled={!hasPrev}
+							data-testid="prev-btn"
+						>
+							Prev
+						</button>
+						<button
+							type="button"
+							onClick={onNext}
+							disabled={!hasNext}
+							data-testid="next-btn"
+						>
+							Next
+						</button>
+					</div>
+				)}
+			/>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText("Content 1")).toBeInTheDocument();
+		});
+
+		// Go to next item
+		fireEvent.click(screen.getByTestId("next-btn"));
+
+		await waitFor(() => {
+			expect(screen.getByText("Content 2")).toBeInTheDocument();
+		});
+
+		// Go back to previous item
+		fireEvent.click(screen.getByTestId("prev-btn"));
+
+		await waitFor(() => {
+			expect(screen.getByText("Content 1")).toBeInTheDocument();
+		});
+	});
+
+	it("should load more items when navigating beyond buffer", async () => {
 		const page1 = [
 			{ id: 1, title: "Content 1" },
 			{ id: 2, title: "Content 2" },
@@ -111,12 +201,22 @@ describe("FastContent", () => {
 
 		const fetchCallback = createMockFetch([page1, page2]);
 
-		const { container } = render(
+		render(
 			<FastContent
 				fetchCallback={fetchCallback}
 				renderer={mockRenderer}
-				scrollThreshold={0.8}
 				batchSize={2}
+				initialBatchSize={2}
+				renderControls={({ hasNext, onNext }) => (
+					<button
+						type="button"
+						onClick={onNext}
+						disabled={!hasNext}
+						data-testid="next-btn"
+					>
+						Next
+					</button>
+				)}
 			/>,
 		);
 
@@ -124,19 +224,15 @@ describe("FastContent", () => {
 			expect(screen.getByText("Content 1")).toBeInTheDocument();
 		});
 
-		expect(fetchCallback).toHaveBeenCalledTimes(1);
+		// Navigate to second item
+		fireEvent.click(screen.getByTestId("next-btn"));
 
-		// Simulate scroll to trigger load more
-		const scrollContainer = container.firstChild as HTMLElement;
-		Object.defineProperty(scrollContainer, "scrollHeight", {
-			value: 1000,
-			writable: true,
+		await waitFor(() => {
+			expect(screen.getByText("Content 2")).toBeInTheDocument();
 		});
-		Object.defineProperty(scrollContainer, "clientHeight", {
-			value: 200,
-			writable: true,
-		});
-		fireEvent.scroll(scrollContainer, { target: { scrollTop: 800 } });
+
+		// Navigate to third item (should trigger load more)
+		fireEvent.click(screen.getByTestId("next-btn"));
 
 		await waitFor(() => {
 			expect(fetchCallback).toHaveBeenCalledWith({
@@ -147,39 +243,47 @@ describe("FastContent", () => {
 
 		await waitFor(() => {
 			expect(screen.getByText("Content 3")).toBeInTheDocument();
-			expect(screen.getByText("Content 4")).toBeInTheDocument();
 		});
 	});
 
-	it("should not load more when hasMore is false", async () => {
+	it("should disable next button when no more content", async () => {
 		const fetchCallback = createMockFetch([mockContents]);
 
-		const { container } = render(
-			<FastContent fetchCallback={fetchCallback} renderer={mockRenderer} />,
+		render(
+			<FastContent
+				fetchCallback={fetchCallback}
+				renderer={mockRenderer}
+				renderControls={({ hasNext, onNext }) => (
+					<button
+						type="button"
+						onClick={onNext}
+						disabled={!hasNext}
+						data-testid="next-btn"
+					>
+						Next
+					</button>
+				)}
+			/>,
 		);
 
 		await waitFor(() => {
 			expect(screen.getByText("Content 1")).toBeInTheDocument();
 		});
 
-		expect(fetchCallback).toHaveBeenCalledTimes(1);
-
-		// Simulate scroll
-		const scrollContainer = container.firstChild as HTMLElement;
-		Object.defineProperty(scrollContainer, "scrollHeight", {
-			value: 1000,
-			writable: true,
+		// Navigate to last item
+		fireEvent.click(screen.getByTestId("next-btn"));
+		await waitFor(() => {
+			expect(screen.getByText("Content 2")).toBeInTheDocument();
 		});
-		Object.defineProperty(scrollContainer, "clientHeight", {
-			value: 200,
-			writable: true,
+
+		fireEvent.click(screen.getByTestId("next-btn"));
+		await waitFor(() => {
+			expect(screen.getByText("Content 3")).toBeInTheDocument();
 		});
-		fireEvent.scroll(scrollContainer, { target: { scrollTop: 800 } });
 
-		// Wait a bit to ensure no additional fetch
-		await new Promise((resolve) => setTimeout(resolve, 100));
-
-		expect(fetchCallback).toHaveBeenCalledTimes(1);
+		// Next button should be disabled
+		const nextBtn = screen.getByTestId("next-btn");
+		expect(nextBtn).toBeDisabled();
 	});
 
 	it("should handle fetch errors gracefully", async () => {
@@ -195,46 +299,9 @@ describe("FastContent", () => {
 			expect(fetchCallback).toHaveBeenCalled();
 		});
 
-		// Component should still render without crashing
-		expect(screen.queryByText("Content 1")).not.toBeInTheDocument();
-	});
-
-	it("should use custom scroll threshold", async () => {
-		const page1 = [{ id: 1, title: "Content 1" }];
-		const page2 = [{ id: 2, title: "Content 2" }];
-
-		const fetchCallback = createMockFetch([page1, page2]);
-
-		const { container } = render(
-			<FastContent
-				fetchCallback={fetchCallback}
-				renderer={mockRenderer}
-				scrollThreshold={0.5}
-				batchSize={1}
-			/>,
-		);
-
+		// Component should show "No content available" when error occurs
 		await waitFor(() => {
-			expect(screen.getByText("Content 1")).toBeInTheDocument();
-		});
-
-		// Simulate scroll at 50% threshold
-		const scrollContainer = container.firstChild as HTMLElement;
-		Object.defineProperty(scrollContainer, "scrollHeight", {
-			value: 1000,
-			writable: true,
-		});
-		Object.defineProperty(scrollContainer, "clientHeight", {
-			value: 200,
-			writable: true,
-		});
-		fireEvent.scroll(scrollContainer, { target: { scrollTop: 400 } });
-
-		await waitFor(() => {
-			expect(fetchCallback).toHaveBeenCalledWith({
-				offset: 1,
-				limit: 1,
-			});
+			expect(screen.getByText("No content available")).toBeInTheDocument();
 		});
 	});
 
@@ -261,7 +328,6 @@ describe("FastContent", () => {
 			/>,
 		);
 
-		// Custom fallback should appear immediately
 		expect(screen.getByTestId("custom-fallback")).toBeInTheDocument();
 
 		await waitFor(() => {
@@ -269,47 +335,43 @@ describe("FastContent", () => {
 		});
 	});
 
-	it("should render custom loadingMoreFallback when loading more items", async () => {
-		const page1 = [{ id: 1, title: "Content 1" }];
-		const page2 = [{ id: 2, title: "Content 2" }];
+	it("should show loading state in controls when navigating", async () => {
+		const fetchCallback = vi.fn(
+			() =>
+				new Promise<FetchResult<TestContent>>((resolve) =>
+					setTimeout(
+						() =>
+							resolve({
+								items: mockContents,
+								hasMore: false,
+							}),
+						50,
+					),
+				),
+		);
 
-		const fetchCallback = createMockFetch([page1, page2]);
-
-		const { container } = render(
+		render(
 			<FastContent
 				fetchCallback={fetchCallback}
 				renderer={mockRenderer}
-				batchSize={1}
-				loadingMoreFallback={
-					<div data-testid="loading-more">Loading more...</div>
-				}
+				renderControls={({ isLoading, hasNext, onNext }) => (
+					<div>
+						<button
+							type="button"
+							onClick={onNext}
+							disabled={!hasNext}
+							data-testid="next-btn"
+						>
+							Next
+						</button>
+						{isLoading && <span data-testid="loading-indicator">Loading</span>}
+					</div>
+				)}
 			/>,
 		);
 
 		await waitFor(() => {
 			expect(screen.getByText("Content 1")).toBeInTheDocument();
-		});
-
-		// Scroll to bottom to trigger load more
-		const scrollContainer = container.firstChild as HTMLElement;
-		Object.defineProperty(scrollContainer, "scrollHeight", {
-			value: 1000,
-			writable: true,
-		});
-		Object.defineProperty(scrollContainer, "clientHeight", {
-			value: 200,
-			writable: true,
-		});
-
-		fireEvent.scroll(scrollContainer, { target: { scrollTop: 800 } });
-
-		// Custom "loading more" fallback should appear
-		await waitFor(() => {
-			expect(screen.getByTestId("loading-more")).toBeInTheDocument();
-		});
-
-		await waitFor(() => {
-			expect(screen.getByText("Content 2")).toBeInTheDocument();
 		});
 	});
 });

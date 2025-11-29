@@ -9,6 +9,11 @@ export interface UseFastContentConfig<T>
 
 export interface UseFastContentReturn<T> extends ContentState<T> {
 	loadMore: () => Promise<void>;
+	goNext: () => Promise<void>;
+	goPrev: () => void;
+	currentItem: T | undefined;
+	nextItem: T | undefined;
+	prevItem: T | undefined;
 }
 
 export function useFastContent<T>(
@@ -17,6 +22,7 @@ export function useFastContent<T>(
 	const coreRef = useRef<FastContentsCore<T> | null>(null);
 	const [state, setState] = useState<ContentState<T>>({
 		items: [],
+		currentIndex: 0,
 		isLoading: false,
 		isInitialized: false,
 		error: null,
@@ -44,6 +50,7 @@ export function useFastContent<T>(
 			setState(newState);
 		});
 
+		// Initial load to fill the buffer
 		core.loadMore();
 
 		return () => {
@@ -53,13 +60,29 @@ export function useFastContent<T>(
 	}, [initialBatchSize, batchSize, scrollThreshold]);
 
 	const loadMore = async () => {
-		if (coreRef.current) {
-			await coreRef.current.loadMore();
-		}
+		if (coreRef.current) await coreRef.current.loadMore();
 	};
+
+	const goNext = async () => {
+		if (coreRef.current) await coreRef.current.goNext();
+	};
+
+	const goPrev = () => {
+		if (coreRef.current) coreRef.current.goPrev();
+	};
+
+	// Helper properties for the view
+	const currentItem = state.items[state.currentIndex];
+	const prevItem = state.items[state.currentIndex - 1];
+	const nextItem = state.items[state.currentIndex + 1];
 
 	return {
 		...state,
 		loadMore,
+		goNext,
+		goPrev,
+		currentItem,
+		prevItem,
+		nextItem,
 	};
 }

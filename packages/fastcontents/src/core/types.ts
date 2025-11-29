@@ -65,6 +65,7 @@ export interface FastContentsConfig<T> {
  */
 export interface ContentState<T> {
 	items: T[];
+	currentIndex: number;
 	isLoading: boolean;
 	isInitialized: boolean;
 	error: Error | null;

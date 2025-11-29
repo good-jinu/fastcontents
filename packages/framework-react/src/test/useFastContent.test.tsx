@@ -69,7 +69,7 @@ describe("useFastContent", () => {
 		expect(result.current.isLoading).toBe(false);
 		expect(fetchCallback).toHaveBeenCalledWith({
 			offset: 0,
-			limit: 10,
+			limit: 3, // Default initialBatchSize is 3
 		});
 	});
 
