@@ -1,5 +1,13 @@
 # @fastcontents/react
 
+## 0.2.3
+
+### Patch Changes
+
+- Bump up the fastcontents package
+- Updated dependencies
+  - fastcontents@0.2.1
+
 ## 0.2.2
 
 ### Patch Changes
