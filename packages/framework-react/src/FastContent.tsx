@@ -11,13 +11,13 @@ export interface FastContentProps<T> {
 	renderer: React.ComponentType<{ content: T; index: number }>;
 
 	// UI for navigation (Optional - you can implement your own buttons)
-	renderControls?: (props: {
+	renderControls?: React.ComponentType<{
 		hasPrev: boolean;
 		hasNext: boolean;
 		onPrev: () => void;
 		onNext: () => void;
 		isLoading: boolean;
-	}) => React.ReactNode;
+	}>;
 
 	initialBatchSize?: number;
 	batchSize?: number;
@@ -27,7 +27,7 @@ export interface FastContentProps<T> {
 export function FastContent<T>({
 	fetchCallback,
 	renderer: Renderer,
-	renderControls,
+	renderControls: RenderControls,
 	initialBatchSize = 3, // Keep small for navigation
 	batchSize = 3,
 	fallback,
@@ -65,13 +65,15 @@ export function FastContent<T>({
 			<Renderer content={currentItem} index={currentIndex} />
 
 			{/* 2. Optional: Render Navigation Controls */}
-			{renderControls?.({
-				hasPrev,
-				hasNext,
-				onPrev: goPrev,
-				onNext: goNext,
-				isLoading,
-			})}
+			{RenderControls && (
+				<RenderControls
+					hasPrev={hasPrev}
+					hasNext={hasNext}
+					onPrev={goPrev}
+					onNext={goNext}
+					isLoading={isLoading}
+				/>
+			)}
 		</div>
 	);
 }

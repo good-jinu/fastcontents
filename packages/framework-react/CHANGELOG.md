@@ -1,5 +1,11 @@
 # @fastcontents/react
 
+## 0.2.2
+
+### Patch Changes
+
+- Fix RenderControls to Component
+
 ## 0.2.1
 
 ### Patch Changes
