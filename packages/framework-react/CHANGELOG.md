@@ -1,5 +1,11 @@
 # @fastcontents/react
 
+## 0.2.4
+
+### Patch Changes
+
+- Fix dependency with no external
+
 ## 0.2.3
 
 ### Patch Changes

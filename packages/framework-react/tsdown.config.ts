@@ -11,4 +11,5 @@ export default defineConfig({
 	inputOptions: {
 		tsconfig: "./tsconfig.json",
 	},
+	noExternal: ["fastcontents"]
 });
