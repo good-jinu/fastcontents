@@ -1,6 +1,6 @@
 {
 	"name": "@fastcontents/react",
-	"version": "0.2.4",
+	"version": "0.2.5",
 	"type": "module",
 	"main": "dist/index.cjs",
 	"module": "dist/index.js",
@@ -28,11 +28,11 @@
 		"build-storybook": "storybook build"
 	},
 	"dependencies": {
-		"fastcontents": "workspace:*",
 		"react": "^19.2",
 		"react-dom": "^19.2"
 	},
 	"devDependencies": {
+		"fastcontents": "workspace:*",
 		"@testing-library/jest-dom": "^6.6.3",
 		"@testing-library/react": "^16.1.0",
 		"@testing-library/user-event": "^14.5.2",
