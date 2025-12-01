@@ -32,9 +32,6 @@ importers:
 
   packages/framework-react:
     dependencies:
-      fastcontents:
-        specifier: workspace:*
-        version: link:../fastcontents
       react:
         specifier: ^19.2
         version: 19.2.0
@@ -63,6 +60,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^4.3.4
         version: 4.7.0(vite@5.4.21)
+      fastcontents:
+        specifier: workspace:*
+        version: link:../fastcontents
       jsdom:
         specifier: ^25.0.1
         version: 25.0.1
