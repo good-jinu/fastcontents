@@ -79,6 +79,9 @@ const CardRenderer = ({
 			height: "100%",
 			padding: "40px",
 			backgroundColor: "#fff",
+			// Ensure it takes full size and doesn't shrink
+			flex: "0 0 100%",
+			boxSizing: "border-box"
 		}}
 	>
 		<div
@@ -325,7 +328,7 @@ const meta: Meta<typeof FastContent> = {
 				style={{
 					height: "100vh",
 					backgroundColor: "#f5f5f5",
-					overflow: "auto",
+					overflow: "hidden", // Changed to hidden for swipe testing
 				}}
 			>
 				<Story />
@@ -359,6 +362,36 @@ export const FancyNavigation: Story = {
 			initialBatchSize={3}
 			batchSize={3}
 			renderControls={FancyControls}
+		/>
+	),
+};
+
+// --- SWIPE STORIES ---
+
+export const SwipeHorizontal: Story = {
+	render: () => (
+		<FastContent
+			fetchCallback={createMockFetch({ totalItems: 30, delay: 100 })}
+			renderer={CardRenderer}
+			initialBatchSize={3}
+			batchSize={3}
+			enableSwipe={true}
+			orientation="horizontal"
+			renderControls={SimpleControls} // Can still show controls
+		/>
+	),
+};
+
+export const SwipeVertical: Story = {
+	render: () => (
+		<FastContent
+			fetchCallback={createMockFetch({ totalItems: 30, delay: 100 })}
+			renderer={CardRenderer}
+			initialBatchSize={3}
+			batchSize={3}
+			enableSwipe={true}
+			orientation="vertical"
+			renderControls={SimpleControls}
 		/>
 	),
 };
