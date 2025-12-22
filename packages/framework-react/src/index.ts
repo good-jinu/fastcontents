@@ -13,3 +13,9 @@ export type {
 	UseFastContentReturn,
 } from "./useFastContent";
 export { useFastContent } from "./useFastContent";
+
+// Export Swipe related types and components
+export type { SwipeOrientation, UseSwipeProps } from "./useSwipe";
+export { useSwipe } from "./useSwipe";
+export type { SwipeWrapperProps } from "./SwipeWrapper";
+export { DefaultSwipeWrapper, SwipeItem } from "./SwipeWrapper";
