@@ -1,5 +1,11 @@
 # @fastcontents/react
 
+## 0.3.0
+
+### Minor Changes
+
+- 60f1fa0: Add swipe to view next/previous content feature.
+
 ## 0.2.5
 
 ### Patch Changes
