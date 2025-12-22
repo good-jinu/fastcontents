@@ -6,21 +6,19 @@ FastContents is a high-performance, framework-agnostic library for building infi
 
 This monorepo contains the following packages:
 
-- **[`fastcontents`](./packages/fastcontents)**: The core logic library. It handles state management, fetching, caching, and navigation logic. It is zero-dependency and framework-agnostic.
+- **[`fastcontents`](./packages/fastcontents)**: The internal core logic library. It handles state management, fetching, caching, and navigation logic.
 - **[`@fastcontents/react`](./packages/framework-react)**: The React binding for FastContents. It provides hooks (`useFastContent`) and components (`FastContent`) to easily build swipeable feeds.
 
 ## Installation
 
 You can install the packages via your preferred package manager.
 
-### React
-
 ```bash
-npm install @fastcontents/react fastcontents
+npm install @fastcontents/react
 # or
-pnpm add @fastcontents/react fastcontents
+pnpm add @fastcontents/react
 # or
-yarn add @fastcontents/react fastcontents
+yarn add @fastcontents/react
 ```
 
 ## Usage
@@ -81,33 +79,6 @@ export default function App() {
 }
 ```
 
-### Core Logic (Vanilla JS/TS)
-
-If you are not using React, you can use the core library directly.
-
-```ts
-import { FastContentsCore } from 'fastcontents';
-
-const core = new FastContentsCore({
-  fetchCallback: async ({ offset, limit }) => {
-    // Fetch data...
-    return { items: [...], hasMore: true };
-  },
-  initialBatchSize: 3,
-  batchSize: 3,
-});
-
-// Subscribe to state changes
-core.subscribe((state) => {
-  console.log('Current Index:', state.currentIndex);
-  console.log('Items:', state.items);
-});
-
-// Navigate
-await core.loadMore(); // Initial load
-await core.goNext();
-core.goPrev();
-```
 
 ## Features
 
