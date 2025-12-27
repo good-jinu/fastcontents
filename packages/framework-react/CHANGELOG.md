@@ -1,5 +1,12 @@
 # @fastcontents/react
 
+## 0.3.2
+
+### Patch Changes
+
+- 86c49f9: Update README with Swipe API details
+- 806bc43: Fix lint issues
+
 ## 0.3.1
 
 ### Patch Changes
