@@ -7,7 +7,9 @@ setupPointerEventMock();
 
 describe("FastContent Swipe Interactions", () => {
 	it("should only capture pointer after dragging starts (threshold exceeded)", async () => {
-		const fetchCallback = vi.fn(() => Promise.resolve({ items: [{ id: 1, title: "1" }], hasMore: false }));
+		const fetchCallback = vi.fn(() =>
+			Promise.resolve({ items: [{ id: 1, title: "1" }], hasMore: false }),
+		);
 		const setPointerCaptureMock = vi.fn();
 
 		// Mock setPointerCapture on HTMLElement prototype
@@ -18,13 +20,14 @@ describe("FastContent Swipe Interactions", () => {
 				fetchCallback={fetchCallback}
 				renderer={({ content }) => <div>{content.title}</div>}
 				enableSwipe={true}
-			/>
+			/>,
 		);
 
 		await screen.findByText("1");
 
-		const container = screen.getByText("1").closest("div")?.parentElement?.parentElement;
-        if (!container) throw new Error("Container not found");
+		const container = screen.getByText("1").closest("div")
+			?.parentElement?.parentElement;
+		if (!container) throw new Error("Container not found");
 
 		// 1. Pointer Down
 		fireEvent.pointerDown(container, { clientX: 0, clientY: 0, pointerId: 1 });

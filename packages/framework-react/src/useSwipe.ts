@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type SwipeOrientation = "horizontal" | "vertical";
 
@@ -53,13 +53,15 @@ export function useSwipe({
 		const currentX = e.clientX;
 		const currentY = e.clientY;
 
-		let deltaX = currentX - startPos.current.x;
-		let deltaY = currentY - startPos.current.y;
+		const deltaX = currentX - startPos.current.x;
+		const deltaY = currentY - startPos.current.y;
 		let delta = orientation === "horizontal" ? deltaX : deltaY;
 
 		// If we haven't started dragging yet, check threshold
 		if (!isDragging) {
-			const moveDistance = Math.abs(orientation === "horizontal" ? deltaX : deltaY);
+			const moveDistance = Math.abs(
+				orientation === "horizontal" ? deltaX : deltaY,
+			);
 			const DRAG_THRESHOLD = 5; // px
 
 			if (moveDistance > DRAG_THRESHOLD) {

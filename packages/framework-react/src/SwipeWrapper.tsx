@@ -54,7 +54,7 @@ export function SwipeItem({
 	orientation: SwipeOrientation;
 }) {
 	const isHorizontal = orientation === "horizontal";
-	let style: React.CSSProperties = {
+	const style: React.CSSProperties = {
 		position: "absolute",
 		width: "100%",
 		height: "100%",

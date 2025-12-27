@@ -1,7 +1,7 @@
 // FastContent.tsx
 import type { FetchCallback } from "fastcontents";
-import { DefaultSwipeWrapper, SwipeItem } from "./SwipeWrapper";
 import type { SwipeWrapperProps } from "./SwipeWrapper";
+import { DefaultSwipeWrapper, SwipeItem } from "./SwipeWrapper";
 import { useFastContent } from "./useFastContent";
 import { type SwipeOrientation, useSwipe } from "./useSwipe";
 
