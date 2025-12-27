@@ -59,7 +59,9 @@ export function useSwipe({
 
 		// If we haven't started dragging yet, check threshold
 		if (!isDragging) {
-			const moveDistance = Math.abs(orientation === "horizontal" ? deltaX : deltaY);
+			const moveDistance = Math.abs(
+				orientation === "horizontal" ? deltaX : deltaY,
+			);
 			const DRAG_THRESHOLD = 5; // px
 
 			if (moveDistance > DRAG_THRESHOLD) {

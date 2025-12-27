@@ -11,10 +11,11 @@ npm install @fastcontents/react
 ## Features
 
 - 🎯 **Navigation-based**: Display one content item at a time with prev/next controls
+- 👆 **Swipe Gestures**: Built-in support for TikTok-style vertical or Instagram-style horizontal swiping
 - 🚀 **Smart buffering**: Automatically prefetches content ahead of user navigation
 - ⚡ **Efficient loading**: Loads content in small batches to minimize initial load time
 - 🎨 **Fully customizable**: Bring your own UI for content and navigation controls
-- 📱 **Mobile-friendly**: Perfect for TikTok-style or Instagram Reels-style experiences
+- 📱 **Mobile-friendly**: Optimized for touch interactions and mobile devices
 
 ## Basic Usage
 
@@ -62,6 +63,33 @@ function App() {
 }
 ```
 
+## Swipe Support
+
+Enable swipe gestures for a modern mobile experience.
+
+### Vertical Swipe (TikTok style)
+
+```tsx
+<FastContent
+  fetchCallback={fetchVideos}
+  renderer={VideoPlayer}
+  enableSwipe={true}
+  orientation="vertical"
+  initialBatchSize={3}
+/>
+```
+
+### Horizontal Swipe (Stories style)
+
+```tsx
+<FastContent
+  fetchCallback={fetchStories}
+  renderer={StoryViewer}
+  enableSwipe={true}
+  orientation="horizontal"
+/>
+```
+
 ## API Reference
 
 ### FastContent Props
@@ -76,19 +104,6 @@ type FetchCallback<T> = (params: { offset: number; limit: number }) => Promise<{
 
 Function to fetch content. Receives pagination parameters and returns items with a flag indicating if more content is available.
 
-**Example:**
-```tsx
-const fetchCallback = async ({ offset, limit }) => {
-  const response = await fetch(`/api/posts?offset=${offset}&limit=${limit}`);
-  const { posts, total } = await response.json();
-  
-  return {
-    items: posts,
-    hasMore: offset + posts.length < total,
-  };
-};
-```
-
 #### `renderer` (required)
 ```tsx
 type Renderer<T> = React.ComponentType<{
@@ -98,17 +113,6 @@ type Renderer<T> = React.ComponentType<{
 ```
 
 Component to render each content item. Receives the current content and its global index.
-
-**Example:**
-```tsx
-const PostRenderer = ({ content, index }) => (
-  <article>
-    <h1>{content.title}</h1>
-    <p>{content.body}</p>
-    <small>Item #{index + 1}</small>
-  </article>
-);
-```
 
 #### `renderControls` (optional)
 ```tsx
@@ -121,22 +125,7 @@ type RenderControls = (props: {
 }) => React.ReactNode;
 ```
 
-Custom navigation controls. If not provided, you'll need to implement your own navigation UI.
-
-**Example:**
-```tsx
-const controls = ({ hasPrev, hasNext, onPrev, onNext, isLoading }) => (
-  <nav>
-    <button onClick={onPrev} disabled={!hasPrev || isLoading}>
-      ← Prev
-    </button>
-    <span>{isLoading ? 'Loading...' : 'Navigate'}</span>
-    <button onClick={onNext} disabled={!hasNext || isLoading}>
-      Next →
-    </button>
-  </nav>
-);
-```
+Custom navigation controls. If not provided, you'll need to implement your own navigation UI or use swipe gestures.
 
 #### `initialBatchSize` (optional)
 - Type: `number`
@@ -156,14 +145,29 @@ Number of items to fetch when loading more content.
 
 UI to show while the initial content is loading.
 
-**Example:**
-```tsx
-<FastContent
-  fetchCallback={fetchCallback}
-  renderer={PostRenderer}
-  fallback={<div>Loading your content...</div>}
-/>
-```
+#### `enableSwipe` (optional)
+- Type: `boolean`
+- Default: `false`
+
+Enables touch swipe gestures for navigation.
+
+#### `orientation` (optional)
+- Type: `'horizontal' | 'vertical'`
+- Default: `'horizontal'`
+
+Direction of swipe gestures.
+
+#### `swipeThreshold` (optional)
+- Type: `number`
+- Default: `50`
+
+Distance in pixels the user must swipe to trigger navigation.
+
+#### `SwipeWrapper` (optional)
+- Type: `React.ComponentType<SwipeWrapperProps>`
+- Default: `DefaultSwipeWrapper`
+
+Custom component to wrap the swipeable items. Use this to customize animations or layout during swipe.
 
 ## Advanced Usage
 
@@ -212,6 +216,8 @@ function VideoFeed() {
       renderControls={NavigationControls}
       initialBatchSize={5}
       batchSize={5}
+      enableSwipe={true}
+      orientation="vertical"
     />
   );
 }
@@ -240,33 +246,16 @@ function CustomContentViewer() {
     },
     initialBatchSize: 3,
     batchSize: 3,
+    scrollThreshold: 200, // Optional: for infinite scroll logic
   });
 
   if (!currentItem) {
     return <div>Loading...</div>;
   }
 
-  const hasPrev = currentIndex > 0;
-  const hasNext = currentIndex < items.length - 1 || hasMore;
-
   return (
     <div>
-      <article>
-        <h1>{currentItem.title}</h1>
-        <p>{currentItem.content}</p>
-      </article>
-      
-      <nav>
-        <button onClick={goPrev} disabled={!hasPrev}>
-          Previous
-        </button>
-        <span>
-          {currentIndex + 1} of {hasMore ? `${items.length}+` : items.length}
-        </span>
-        <button onClick={goNext} disabled={!hasNext}>
-          Next
-        </button>
-      </nav>
+       {/* Custom UI Implementation */}
     </div>
   );
 }
@@ -291,13 +280,29 @@ Returns an object with:
 - `nextItem: T | undefined` - The next item (for prefetching)
 - `prevItem: T | undefined` - The previous item
 
+### Configuration Object
+
+- `fetchCallback` (required): Function to fetch data.
+- `initialBatchSize` (optional): Items to load initially.
+- `batchSize` (optional): Items to load per batch.
+- `scrollThreshold` (optional): Threshold for triggering loadMore in scroll-based implementations.
+
+## Other Exports
+
+The package also exports building blocks for custom swipe implementations:
+
+- `useSwipe`: Hook for handling touch events and swipe logic.
+- `SwipeItem`: Component for wrapping individual swipe items.
+- `DefaultSwipeWrapper`: The default container for swipeable content.
+- `SwipeOrientation`: Type definition for 'horizontal' | 'vertical'.
+
 ## Performance Tips
 
 1. **Keep batch sizes small** (3-5 items) for faster initial load
 2. **Use the `fallback` prop** to show loading UI during initial fetch
-3. **Implement keyboard navigation** for better UX on desktop
-4. **Prefetch media** in your renderer when `nextItem` is available
-5. **Memoize your renderer** component to avoid unnecessary re-renders
+3. **Prefetch media** in your renderer when `nextItem` is available
+4. **Memoize your renderer** component to avoid unnecessary re-renders
+5. **Use `enableSwipe`** for mobile-first experiences
 
 ## Testing
 
@@ -305,12 +310,6 @@ Run tests:
 
 ```bash
 pnpm test
-```
-
-Run tests in watch mode:
-
-```bash
-pnpm test:watch
 ```
 
 ## License
