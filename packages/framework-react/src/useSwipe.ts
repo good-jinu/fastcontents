@@ -43,26 +43,35 @@ export function useSwipe({
 		if (isSnapping) return; // Ignore interactions while snapping
 
 		startPos.current = { x: e.clientX, y: e.clientY };
-		setIsDragging(true);
-		// Important for tracking drag: capture on the container
-		e.currentTarget.setPointerCapture(e.pointerId);
+		// We do NOT set isDragging=true or capture pointer here.
+		// We wait for a small movement to distinguish tap/click from drag.
 	};
 
 	const handlePointerMove = (e: React.PointerEvent) => {
-		if (!isDragging || !startPos.current) return;
-
-		// Prevent default scrolling behavior if possible (though touch-action handles this mostly)
-		e.preventDefault();
+		if (!startPos.current) return;
 
 		const currentX = e.clientX;
 		const currentY = e.clientY;
 
-		let delta = 0;
-		if (orientation === "horizontal") {
-			delta = currentX - startPos.current.x;
-		} else {
-			delta = currentY - startPos.current.y;
+		let deltaX = currentX - startPos.current.x;
+		let deltaY = currentY - startPos.current.y;
+		let delta = orientation === "horizontal" ? deltaX : deltaY;
+
+		// If we haven't started dragging yet, check threshold
+		if (!isDragging) {
+			const moveDistance = Math.abs(orientation === "horizontal" ? deltaX : deltaY);
+			const DRAG_THRESHOLD = 5; // px
+
+			if (moveDistance > DRAG_THRESHOLD) {
+				setIsDragging(true);
+				e.currentTarget.setPointerCapture(e.pointerId);
+			} else {
+				return;
+			}
 		}
+
+		// Prevent default scrolling behavior if possible (though touch-action handles this mostly)
+		if (e.cancelable) e.preventDefault();
 
 		// Constrain drag based on availability
 		// Dragging LEFT (negative delta) means going NEXT
@@ -78,7 +87,14 @@ export function useSwipe({
 	};
 
 	const handlePointerUp = (e: React.PointerEvent) => {
-		if (!isDragging) return;
+		if (!startPos.current) return;
+
+		// If we never started dragging, it's a click/tap.
+		// Just clean up.
+		if (!isDragging) {
+			startPos.current = null;
+			return;
+		}
 
 		setIsDragging(false);
 		e.currentTarget.releasePointerCapture(e.pointerId);
