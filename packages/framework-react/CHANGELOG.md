@@ -1,5 +1,12 @@
 # @fastcontents/react
 
+## 0.3.1
+
+### Patch Changes
+
+- edd5b65: Add README.md documentation.
+- d5a29ec: fix: delay pointer capture in useSwipe to allow button clicks
+
 ## 0.3.0
 
 ### Minor Changes
