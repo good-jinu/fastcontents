@@ -12,18 +12,18 @@ export function setupPointerEventMock() {
 				this.isPrimary = params.isPrimary || false;
 			}
 		}
-		// @ts-ignore
+		// @ts-expect-error
 		global.PointerEvent = PointerEvent;
 	}
 
 	if (!HTMLElement.prototype.setPointerCapture) {
-		HTMLElement.prototype.setPointerCapture = function (pointerId: number) {
+		HTMLElement.prototype.setPointerCapture = (_pointerId: number) => {
 			// Mock implementation
 		};
 	}
 
 	if (!HTMLElement.prototype.releasePointerCapture) {
-		HTMLElement.prototype.releasePointerCapture = function (pointerId: number) {
+		HTMLElement.prototype.releasePointerCapture = (_pointerId: number) => {
 			// Mock implementation
 		};
 	}
