@@ -81,7 +81,7 @@ const CardRenderer = ({
 			backgroundColor: "#fff",
 			// Ensure it takes full size and doesn't shrink
 			flex: "0 0 100%",
-			boxSizing: "border-box"
+			boxSizing: "border-box",
 		}}
 	>
 		<div
